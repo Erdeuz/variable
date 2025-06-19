@@ -36,10 +36,12 @@
     const keys = ['a', 's', 'd', 'f'];
     const colWidth = canvas.width / columns;
     const hitZoneY = canvas.height - 100;
-    const hitZoneHeight = 10;
+    // Aumentamos la altura de la zona de impacto en 40%
+    const hitZoneHeight = 10 * 1.4; // ahora 14px aprox.
     const noteWidth = colWidth - 10;
     const noteHeight = 20;
-    const speed = 200; // px por segundo
+    // Aumentamos la velocidad de las notas en un 20%
+    const speed = 200 * 1.2; // ahora 240 px/s
     const spawnInterval = 1000; // ms entre notas (puede ajustarse o basarse en ritmo)
     let notes = [];
     let lastSpawn = 0;
@@ -72,7 +74,7 @@
         ctx.lineTo(i * colWidth, canvas.height);
         ctx.stroke();
       }
-      // zona de impacto
+      // zona de impacto con mayor altura
       ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
       ctx.fillRect(0, hitZoneY, canvas.width, hitZoneHeight);
 
@@ -104,7 +106,7 @@
 
     function update(delta) {
       if (gameOver) return;
-      // mover notas
+      // mover notas con mayor velocidad
       notes.forEach(note => {
         if (!note.hit) {
           note.y += speed * delta;
@@ -113,7 +115,7 @@
       // verificar notas pasadas
       for (let note of notes) {
         if (!note.hit && note.y > hitZoneY + hitZoneHeight) {
-          // nota no golpeada en zona
+          // nota no golpeada en zona -> game over
           gameOver = true;
         }
       }
@@ -145,7 +147,7 @@
       const key = e.key.toLowerCase();
       const colIndex = keys.indexOf(key);
       if (colIndex !== -1) {
-        // buscar nota en esa columna en zona de impacto
+        // buscar nota en esa columna en zona de impacto ampliada
         for (let note of notes) {
           if (!note.hit && note.column === colIndex) {
             if (note.y + noteHeight >= hitZoneY && note.y <= hitZoneY + hitZoneHeight) {
