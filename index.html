@@ -37,12 +37,12 @@
     const colWidth = canvas.width / columns;
     const hitZoneY = canvas.height - 100;
     // Aumentamos la altura de la zona de impacto en 40%
-    const hitZoneHeight = 10 * 2; // ahora 14px aprox.
+    const hitZoneHeight = 10 * 2.5; // ahora 14px aprox.
     const noteWidth = colWidth - 10;
     const noteHeight = 20;
     // Aumentamos la velocidad de las notas en un 20%
     const speed = 200 * 1.3; // ahora 240 px/s
-    const spawnInterval = 1000; // ms entre notas (puede ajustarse o basarse en ritmo)
+    const spawnInterval = 600; // ms entre notas (puede ajustarse o basarse en ritmo)
     let notes = [];
     let lastSpawn = 0;
     let lastTime = 0;
