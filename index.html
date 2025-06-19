@@ -55,6 +55,7 @@
     <div>Selecciona un archivo de audio para el fondo (p. ej. tema de Metal Gear):</div>
     <input type="file" id="audioInput" accept="audio/*" />
     <button id="startButton" disabled>Iniciar Juego</button>
+    <div style="margin-top:20px; font-size:16px; color:#ccc; text-align:center; max-width:80%;">O pulsa una tecla tras seleccionar audio para iniciar</div>
   </div>
   <canvas id="gameCanvas"></canvas>
   <script>
@@ -116,6 +117,7 @@
       resizeCanvas();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.fillStyle = '#fff';
+      ctx.font = '20px Arial';
       ctx.textAlign = 'center';
       ctx.fillText('Selecciona audio y presiona Iniciar', canvas.width/2, canvas.height/2 - 20);
     }
@@ -180,13 +182,14 @@
       update(delta); draw(); if (!gameOver) requestAnimationFrame(gameLoop);
     }
 
-    startButton.addEventListener('click', () => {
-      if (!selectedAudioUrl) return;
+    // Iniciar juego tras click o tecla si audio seleccionado
+    function startGame() {
+      if (gameStarted || !selectedAudioUrl) return;
       gameStarted = true;
       startOverlay.style.display = 'none';
       initAudio().then(() => resetGame());
-    });
-
+    }
+    startButton.addEventListener('click', startGame);
     audioInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (file) {
@@ -195,9 +198,10 @@
         startButton.disabled = false;
       }
     });
-
     document.addEventListener('keydown', (e) => {
-      if (!gameStarted) return;
+      if (!gameStarted) {
+        if (selectedAudioUrl) startGame(); else return;
+      }
       if (gameOver && e.key === 'Enter') { if (bgPlayer) bgPlayer.start(); resetGame(); return; }
       if (gameOver) return;
       const key = e.key.toLowerCase(); const colIndex = keys.indexOf(key);
