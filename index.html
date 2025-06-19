@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Juego estilo Guitar Freaks con Música de Metal Gear</title>
+  <title>Juego estilo Guitar Freaks con Música Personalizada</title>
   <style>
     body {
       margin: 0;
@@ -14,28 +14,61 @@
       background: #111;
       color: #fff;
       font-family: Arial, sans-serif;
+      position: relative;
     }
     #gameCanvas {
       background: #222;
       display: block;
       border: 2px solid #555;
     }
+    #startOverlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      font-size: 20px;
+      cursor: default;
+      z-index: 10;
+    }
+    #audioInput {
+      margin-top: 10px;
+      color: #000;
+    }
+    #startButton {
+      margin-top: 10px;
+      padding: 8px 16px;
+      font-size: 16px;
+      cursor: pointer;
+    }
   </style>
-  <!-- Tone.js para reproducir música de fondo y sonidos de hit -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
 </head>
 <body>
+  <div id="startOverlay">
+    <div>Selecciona un archivo de audio para el fondo (p. ej. tema de Metal Gear):</div>
+    <input type="file" id="audioInput" accept="audio/*" />
+    <button id="startButton" disabled>Iniciar Juego</button>
+  </div>
   <canvas id="gameCanvas"></canvas>
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const startOverlay = document.getElementById('startOverlay');
+    const audioInput = document.getElementById('audioInput');
+    const startButton = document.getElementById('startButton');
     const columns = 4;
     const keys = ['a', 's', 'd', 'f'];
     const noteNames = ['C4', 'D4', 'E4', 'F4'];
     let sampler;
     let bgPlayer;
-    const metalGearThemeUrl = 'ruta/a/metalgear-theme.mp3'; // Reemplaza con la URL real de tu archivo
-
+    let selectedAudioUrl = null;
     let colWidth;
     let hitZoneY;
     const baseHitZoneHeight = 10;
@@ -50,12 +83,19 @@
     let lastTime = 0;
     let score = 0;
     let gameOver = false;
+    let gameStarted = false;
 
     async function initAudio() {
-      await Tone.start();
-      sampler = new Tone.PolySynth(Tone.Synth).toDestination();
-      if (bgPlayer) bgPlayer.dispose();
-      bgPlayer = new Tone.Player({ url: metalGearThemeUrl, loop: true, autostart: true, volume: -10 }).toDestination();
+      try {
+        await Tone.start();
+        sampler = new Tone.PolySynth(Tone.Synth).toDestination();
+        if (bgPlayer) bgPlayer.dispose();
+        if (selectedAudioUrl) {
+          bgPlayer = new Tone.Player({ url: selectedAudioUrl, loop: true, autostart: false, volume: -10 }).toDestination();
+        }
+      } catch (e) {
+        console.warn('Error al iniciar audio:', e);
+      }
     }
 
     function resizeCanvas() {
@@ -69,8 +109,16 @@
     }
 
     window.addEventListener('resize', () => {
-      resizeCanvas(); draw();
+      if (!gameStarted) drawStartScreen(); else draw();
     });
+
+    function drawStartScreen() {
+      resizeCanvas();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = '#fff';
+      ctx.textAlign = 'center';
+      ctx.fillText('Selecciona audio y presiona Iniciar', canvas.width/2, canvas.height/2 - 20);
+    }
 
     function spawnNote() {
       const column = Math.floor(Math.random() * columns);
@@ -84,7 +132,7 @@
       score = 0;
       gameOver = false;
       resizeCanvas();
-      if (bgPlayer && bgPlayer.state !== 'started') bgPlayer.start();
+      if (bgPlayer) bgPlayer.start();
       requestAnimationFrame(gameLoop);
     }
 
@@ -132,7 +180,24 @@
       update(delta); draw(); if (!gameOver) requestAnimationFrame(gameLoop);
     }
 
+    startButton.addEventListener('click', () => {
+      if (!selectedAudioUrl) return;
+      gameStarted = true;
+      startOverlay.style.display = 'none';
+      initAudio().then(() => resetGame());
+    });
+
+    audioInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (bgPlayer) bgPlayer.dispose();
+        selectedAudioUrl = URL.createObjectURL(file);
+        startButton.disabled = false;
+      }
+    });
+
     document.addEventListener('keydown', (e) => {
+      if (!gameStarted) return;
       if (gameOver && e.key === 'Enter') { if (bgPlayer) bgPlayer.start(); resetGame(); return; }
       if (gameOver) return;
       const key = e.key.toLowerCase(); const colIndex = keys.indexOf(key);
@@ -147,13 +212,8 @@
       }
     });
 
-    // Iniciar audio al primer clic
-    document.addEventListener('click', async function initOnce() {
-      await initAudio();
-      document.removeEventListener('click', initOnce);
-      resetGame();
-    });
-    resizeCanvas();
+    // Pantalla inicial
+    drawStartScreen();
   </script>
 </body>
 </html>
