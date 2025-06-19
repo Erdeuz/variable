@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Juego estilo Guitar Freaks</title>
+  <title>Juego estilo Guitar Freaks con Sonido</title>
   <style>
     body {
       margin: 0;
@@ -34,16 +34,17 @@
     const ctx = canvas.getContext('2d');
     const columns = 4;
     const keys = ['a', 's', 'd', 'f'];
+    // Mapeo de frecuencias (Hz) para cada columna: C4, D4, E4, F4 como ejemplo
+    const frequencies = [261.63, 293.66, 329.63, 349.23];
+    let audioCtx = null;
+
     let colWidth;
     let hitZoneY;
-    // altura original 10px, ampliada
     const baseHitZoneHeight = 10;
     const hitZoneHeight = baseHitZoneHeight * 1.6; // ~16px
     const noteHeight = 20;
-    // velocidad aumentada
     const baseSpeed = 200;
     const speed = baseSpeed * 1.2; // ~240 px/s
-    // intervalo de aparición
     const spawnInterval = 1000 * 0.8; // ~800 ms
     let noteWidth;
     let notes = [];
@@ -53,13 +54,12 @@
     let gameOver = false;
 
     function resizeCanvas() {
-      // ajustar canvas al 80% ancho y 90% alto de la ventana
-      const w = Math.min(window.innerWidth * 0.5, 500); //.8 /800
+      const w = Math.min(window.innerWidth * 0.8, 800);
       const h = Math.min(window.innerHeight * 0.9, 1000);
       canvas.width = w;
       canvas.height = h;
       colWidth = canvas.width / columns;
-      hitZoneY = canvas.height - canvas.height * 0.15; // zona de impacto a 15% desde abajo
+      hitZoneY = canvas.height - canvas.height * 0.15;
       noteWidth = colWidth - 10;
     }
 
@@ -103,12 +103,12 @@
         ctx.fillStyle = '#ff5555';
         ctx.fillRect(x, note.y, noteWidth, noteHeight);
       });
-      // score dentro de canvas, posición relativa
+      // score dentro de canvas
       ctx.fillStyle = '#fff';
       ctx.font = '20px Arial';
       ctx.textAlign = 'left';
       ctx.fillText(`Score: ${score}`, 10, 30);
-      // game over overlay
+      // overlay game over
       if (gameOver) {
         ctx.fillStyle = 'rgba(0,0,0,0.7)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -131,6 +131,26 @@
           gameOver = true;
         }
       }
+    }
+
+    function playNoteSound(columnIndex) {
+      // Crear AudioContext en primera interacción
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const osc = audioCtx.createOscillator();
+      const gainNode = audioCtx.createGain();
+      const freq = frequencies[columnIndex] || 261.63;
+      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+      osc.type = 'sine';
+      osc.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+      const now = audioCtx.currentTime;
+      gainNode.gain.setValueAtTime(0.001, now);
+      gainNode.gain.exponentialRampToValueAtTime(0.5, now + 0.02);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc.start(now);
+      osc.stop(now + 0.3);
     }
 
     function gameLoop(timestamp) {
@@ -160,6 +180,7 @@
             if (note.y + noteHeight >= hitZoneY && note.y <= hitZoneY + hitZoneHeight) {
               note.hit = true;
               score += 1;
+              playNoteSound(colIndex);
               return;
             }
           }
