@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Juego estilo Guitar Freaks con Sonido MIDI/Samples</title>
+  <title>Juego estilo Guitar Freaks con Selección de Temas</title>
   <style>
     body {
       margin: 0;
@@ -14,57 +14,123 @@
       background: #111;
       color: #fff;
       font-family: Arial, sans-serif;
+      position: relative;
     }
     #gameCanvas {
       background: #222;
       display: block;
       border: 2px solid #555;
     }
-    #info {
+    #themeSelector {
       position: absolute;
-      top: 10px;
-      left: 10px;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 10;
+    }
+    #themeSelector input {
+      padding: 8px;
+      width: 80%;
+      max-width: 400px;
+      margin-bottom: 10px;
+      font-size: 16px;
+    }
+    #themeList {
+      width: 80%;
+      max-width: 400px;
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid #555;
+      background: #222;
+    }
+    #themeList div {
+      padding: 8px;
+      cursor: pointer;
+    }
+    #themeList div:hover {
+      background: #333;
     }
   </style>
-  <!-- Importar Tone.js para reproducción de samples o MIDI sintetizado -->
   <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
+  <div id="themeSelector">
+    <input type="text" id="themeSearch" placeholder="Buscar tema..." />
+    <div id="themeList"></div>
+  </div>
   <script>
+    // Configuración de temas disponibles: nombre y URL
+    const themes = [
+      // Ejemplo: reemplazar URLs con rutas reales donde alojes los archivos
+      { name: 'Metal Gear Solid Main Theme', url: 'ruta/a/metalgear-main.mp3' },
+      { name: 'Metal Gear Solid Love Theme', url: 'ruta/a/metalgear-love.mp3' },
+      { name: 'Metal Gear Solid Alert Theme', url: 'ruta/a/metalgear-alert.mp3' },
+      { name: 'Otro Tema Ejemplo', url: 'ruta/a/otro-tema.mp3' }
+      // Agrega más objetos según colecciones disponibles
+    ];
+
+    const themeSelector = document.getElementById('themeSelector');
+    const themeSearch = document.getElementById('themeSearch');
+    const themeList = document.getElementById('themeList');
+    let selectedThemeUrl = null;
+
+    function renderThemeList(filter = '') {
+      themeList.innerHTML = '';
+      const texto = filter.trim().toLowerCase();
+      themes.forEach(t => {
+        if (t.name.toLowerCase().includes(texto)) {
+          const div = document.createElement('div');
+          div.textContent = t.name;
+          div.addEventListener('click', () => selectTheme(t.url));
+          themeList.appendChild(div);
+        }
+      });
+      if (themeList.children.length === 0) {
+        const div = document.createElement('div');
+        div.textContent = 'No se encontraron temas';
+        div.style.cursor = 'default';
+        themeList.appendChild(div);
+      }
+    }
+
+    function selectTheme(url) {
+      selectedThemeUrl = url;
+      themeSelector.style.display = 'none';
+      // Iniciar audio con tema seleccionado y luego empezar el juego
+      initAudio().then(() => {
+        startGame();
+      });
+    }
+
+    themeSearch.addEventListener('input', () => {
+      renderThemeList(themeSearch.value);
+    });
+    // Render inicial
+    renderThemeList();
+
+    // Variables del juego
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const columns = 4;
     const keys = ['a', 's', 'd', 'f'];
-    // Mapeo de notas MIDI o nombres para Tone.js
-    // Puedes reemplazar por rutas a samples específicos de videojuegos de los 90
     const noteNames = ['C4', 'D4', 'E4', 'F4'];
-    // Si quisieras usar samples en lugar de sintetizador, define un objeto con URLs:
-    // const sampleUrls = { C4: 'ruta/a/sample_C4.wav', D4: 'ruta/a/sample_D4.wav', ... };
 
     let sampler;
-    async function initSampler() {
-      // Inicializar Tone.Sampler; si usas samples, proporciona URLs en 'urls'.
-      // Si no tienes samples, Tone.js usará sintetizador por defecto (no produce sonido si no hay samples normalmente),
-      // así que es mejor indicar al menos un sample básico o usar Tone.Synth.
-      
-      // Ejemplo usando Synth simple:
+    let bgPlayer;
+    async function initAudio() {
+      await Tone.start();
+      // Sintetizador para notas de hit
       sampler = new Tone.PolySynth(Tone.Synth).toDestination();
-      
-      // Ejemplo usando samples (descomenta y ajusta rutas si dispones de archivos):
-      // sampler = new Tone.Sampler({
-      //   urls: {
-      //     'C4': 'C4.wav',
-      //     'D4': 'D4.wav',
-      //     'E4': 'E4.wav',
-      //     'F4': 'F4.wav'
-      //   },
-      //   baseUrl: 'ruta/a/tu/carpeta/de/samples/'
-      // }).toDestination();
-
-      // Esperar a que los samples carguen si se usa Tone.Sampler con URLs
-      if (sampler.load) {
-        await sampler.load();
+      // Reproductor de tema seleccionado
+      if (selectedThemeUrl) {
+        bgPlayer = new Tone.Player({ url: selectedThemeUrl, loop: true, autostart: true, volume: -10 }).toDestination();
       }
     }
 
@@ -84,7 +150,7 @@
     let gameOver = false;
 
     function resizeCanvas() {
-      const w = Math.min(window.innerWidth * 0.5, 500);
+      const w = Math.min(window.innerWidth * 0.8, 800);
       const h = Math.min(window.innerHeight * 0.9, 1000);
       canvas.width = w;
       canvas.height = h;
@@ -92,17 +158,14 @@
       hitZoneY = canvas.height - canvas.height * 0.15;
       noteWidth = colWidth - 10;
     }
-
     window.addEventListener('resize', () => {
-      resizeCanvas();
-      draw();
+      resizeCanvas(); draw();
     });
 
     function spawnNote() {
       const column = Math.floor(Math.random() * columns);
       notes.push({ column, y: -noteHeight, hit: false });
     }
-
     function resetGame() {
       notes = [];
       lastSpawn = 0;
@@ -110,105 +173,66 @@
       score = 0;
       gameOver = false;
       resizeCanvas();
+      if (bgPlayer && !bgPlayer.state === 'started') bgPlayer.start();
       requestAnimationFrame(gameLoop);
     }
-
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       for (let i = 0; i <= columns; i++) {
-        ctx.strokeStyle = '#555';
-        ctx.beginPath();
-        ctx.moveTo(i * colWidth, 0);
-        ctx.lineTo(i * colWidth, canvas.height);
-        ctx.stroke();
+        ctx.strokeStyle = '#555'; ctx.beginPath(); ctx.moveTo(i * colWidth, 0); ctx.lineTo(i * colWidth, canvas.height); ctx.stroke();
       }
-      ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
-      ctx.fillRect(0, hitZoneY, canvas.width, hitZoneHeight);
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'; ctx.fillRect(0, hitZoneY, canvas.width, hitZoneHeight);
       notes.forEach(note => {
         if (note.hit) return;
         const x = note.column * colWidth + 5;
-        ctx.fillStyle = '#ff5555';
-        ctx.fillRect(x, note.y, noteWidth, noteHeight);
+        ctx.fillStyle = '#ff5555'; ctx.fillRect(x, note.y, noteWidth, noteHeight);
       });
-      ctx.fillStyle = '#fff';
-      ctx.font = '20px Arial';
-      ctx.textAlign = 'left';
-      ctx.fillText(`Score: ${score}`, 10, 30);
+      ctx.fillStyle = '#fff'; ctx.font = '20px Arial'; ctx.textAlign = 'left'; ctx.fillText(`Score: ${score}`, 10, 30);
       if (gameOver) {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#fff';
-        ctx.font = '30px Arial';
-        ctx.textAlign = 'center';
-        ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 20);
-        ctx.font = '20px Arial';
-        ctx.fillText('Presiona Enter para reiniciar', canvas.width / 2, canvas.height / 2 + 20);
+        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff'; ctx.font = '30px Arial'; ctx.textAlign = 'center'; ctx.fillText('Game Over', canvas.width/2, canvas.height/2 - 20);
+        ctx.font = '20px Arial'; ctx.fillText('Presiona Enter para reiniciar', canvas.width/2, canvas.height/2 + 20);
       }
     }
-
     function update(delta) {
       if (gameOver) return;
-      notes.forEach(note => {
-        if (!note.hit) note.y += speed * delta;
-      });
+      notes.forEach(note => { if (!note.hit) note.y += speed * delta; });
       for (let note of notes) {
         if (!note.hit && note.y > hitZoneY + hitZoneHeight) {
           gameOver = true;
+          if (bgPlayer) bgPlayer.stop();
         }
       }
     }
-
-    async function playNoteSound(columnIndex) {
-      if (!sampler) {
-        await initSampler();
+    function playNoteSound(columnIndex) {
+      if (sampler) {
+        const note = noteNames[columnIndex] || 'C4';
+        sampler.triggerAttackRelease(note, '8n');
       }
-      const note = noteNames[columnIndex] || 'C4';
-      // Usar Tone.js para reproducir nota
-      // Si se usa PolySynth:
-      sampler.triggerAttackRelease(note, '8n');
     }
-
     function gameLoop(timestamp) {
       if (!lastTime) lastTime = timestamp;
-      const delta = (timestamp - lastTime) / 1000;
-      lastTime = timestamp;
-      if (!gameOver && timestamp - lastSpawn > spawnInterval) {
-        spawnNote();
-        lastSpawn = timestamp;
-      }
-      update(delta);
-      draw();
-      if (!gameOver) requestAnimationFrame(gameLoop);
+      const delta = (timestamp - lastTime)/1000; lastTime = timestamp;
+      if (!gameOver && timestamp - lastSpawn > spawnInterval) { spawnNote(); lastSpawn = timestamp; }
+      update(delta); draw(); if (!gameOver) requestAnimationFrame(gameLoop);
     }
-
     document.addEventListener('keydown', (e) => {
-      if (gameOver && e.key === 'Enter') {
-        resetGame();
-        return;
-      }
+      if (gameOver && e.key === 'Enter') { if (bgPlayer) bgPlayer.start(); resetGame(); return; }
       if (gameOver) return;
-      const key = e.key.toLowerCase();
-      const colIndex = keys.indexOf(key);
+      const key = e.key.toLowerCase(); const colIndex = keys.indexOf(key);
       if (colIndex !== -1) {
         for (let note of notes) {
           if (!note.hit && note.column === colIndex) {
             if (note.y + noteHeight >= hitZoneY && note.y <= hitZoneY + hitZoneHeight) {
-              note.hit = true;
-              score += 1;
-              playNoteSound(colIndex);
-              return;
+              note.hit = true; score += 1; playNoteSound(colIndex); return;
             }
           }
         }
       }
     });
-
-    // Iniciar juego y AudioContext bajo interacción del usuario
-    document.addEventListener('click', async function initAudioOnce() {
-      await Tone.start();
-      document.removeEventListener('click', initAudioOnce);
-    });
-    resetGame();
+    // Iniciar selección de tema primero
+    // El selector ya está visible; resetGame se llamará tras seleccionar tema
+    resizeCanvas();
   </script>
 </body>
 </html>
