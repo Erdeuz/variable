@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Juego estilo Guitar Freaks con Música Personalizada</title>
+  <title>Juego estilo Guitar Freaks con Música de Fondo desde YouTube</title>
   <style>
     body {
       margin: 0;
@@ -23,201 +23,105 @@
     }
     #startOverlay {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
       display: flex;
-      flex-direction: column;
       justify-content: center;
       align-items: center;
       background: rgba(0,0,0,0.7);
       color: #fff;
-      font-size: 20px;
-      cursor: default;
+      font-size: 24px;
+      text-align: center;
+      cursor: pointer;
       z-index: 10;
     }
-    #audioInput {
-      margin-top: 10px;
-      color: #000;
-    }
-    #startButton {
-      margin-top: 10px;
-      padding: 8px 16px;
-      font-size: 16px;
-      cursor: pointer;
+    /* Ocultar iframe */
+    #bgVideo {
+      display: none;
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
 </head>
 <body>
-  <div id="startOverlay">
-    <div>Selecciona un archivo de audio para el fondo (p. ej. tema de Metal Gear):</div>
-    <input type="file" id="audioInput" accept="audio/*" />
-    <button id="startButton" disabled>Iniciar Juego</button>
-    <div style="margin-top:20px; font-size:16px; color:#ccc; text-align:center; max-width:80%;">O pulsa una tecla tras seleccionar audio para iniciar</div>
-  </div>
+  <div id="startOverlay">Haz clic o pulsa tecla para iniciar el juego</div>
   <canvas id="gameCanvas"></canvas>
+  <!-- YouTube iframe para reproducir audio de fondo -->
+  <iframe id="bgVideo" src="" allow="autoplay"></iframe>
+  <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const startOverlay = document.getElementById('startOverlay');
-    const audioInput = document.getElementById('audioInput');
-    const startButton = document.getElementById('startButton');
+    const bgVideo = document.getElementById('bgVideo');
     const columns = 4;
-    const keys = ['a', 's', 'd', 'f'];
-    const noteNames = ['C4', 'D4', 'E4', 'F4'];
+    const keys = ['a','s','d','f'];
+    const noteNames = ['C4','D4','E4','F4'];
     let sampler;
-    let bgPlayer;
-    let selectedAudioUrl = null;
-    let colWidth;
-    let hitZoneY;
+    let colWidth, hitZoneY, noteWidth;
     const baseHitZoneHeight = 10;
     const hitZoneHeight = baseHitZoneHeight * 1.6;
     const noteHeight = 20;
     const baseSpeed = 200;
     const speed = baseSpeed * 1.2;
     const spawnInterval = 1000 * 0.8;
-    let noteWidth;
-    let notes = [];
-    let lastSpawn = 0;
-    let lastTime = 0;
-    let score = 0;
-    let gameOver = false;
-    let gameStarted = false;
+    let notes = [], lastSpawn=0, lastTime=0, score=0, gameOver=false, gameStarted=false;
+    // Puedes poner aquí la URL completa de YouTube
+    const YOUTUBE_URL = 'https://www.youtube.com/watch?v=m2OR_JaXDaM'; // reemplaza con enlace real
+
+    function extractYouTubeID(url) {
+      const regex = /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/;
+      const match = url.match(regex);
+      return match ? match[1] : null;
+    }
 
     async function initAudio() {
-      try {
-        await Tone.start();
-        sampler = new Tone.PolySynth(Tone.Synth).toDestination();
-        if (bgPlayer) bgPlayer.dispose();
-        if (selectedAudioUrl) {
-          bgPlayer = new Tone.Player({ url: selectedAudioUrl, loop: true, autostart: false, volume: -10 }).toDestination();
-        }
-      } catch (e) {
-        console.warn('Error al iniciar audio:', e);
+      if (!window.AudioContext) return;
+      await Tone.start();
+      sampler = new Tone.PolySynth(Tone.Synth).toDestination();
+      const id = extractYouTubeID(YOUTUBE_URL);
+      if (id) {
+        const src = `https://www.youtube.com/embed/${id}?autoplay=1&loop=1&playlist=${id}&controls=0&disablekb=1&modestbranding=1&iv_load_policy=3`;
+        bgVideo.src = src;
+      } else {
+        console.warn('ID de YouTube no válido:', YOUTUBE_URL);
       }
     }
 
-    function resizeCanvas() {
-      const w = Math.min(window.innerWidth * 0.5, 800);
-      const h = Math.min(window.innerHeight * 0.9, 1000);
-      canvas.width = w;
-      canvas.height = h;
-      colWidth = canvas.width / columns;
-      hitZoneY = canvas.height - canvas.height * 0.15;
+    function resizeCanvas(){
+      const w = Math.min(window.innerWidth*0.5,800);
+      const h = Math.min(window.innerHeight*0.9,1000);
+      canvas.width=w;
+      canvas.height=h;
+      colWidth = w/columns;
+      hitZoneY = h - h*0.15;
       noteWidth = colWidth - 10;
     }
-
-    window.addEventListener('resize', () => {
-      if (!gameStarted) drawStartScreen(); else draw();
+    window.addEventListener('resize',()=>{
+      if(!gameStarted) drawStartScreen(); else draw();
     });
-
-    function drawStartScreen() {
-      resizeCanvas();
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#fff';
-      ctx.font = '20px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Selecciona audio y presiona Iniciar', canvas.width/2, canvas.height/2 - 20);
+    function drawStartScreen(){ resizeCanvas(); ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.fillStyle='#fff'; ctx.font='20px Arial'; ctx.textAlign='center';
+      ctx.fillText('Presiona clic o tecla para iniciar', canvas.width/2, canvas.height/2);
     }
-
-    function spawnNote() {
-      const column = Math.floor(Math.random() * columns);
-      notes.push({ column, y: -noteHeight, hit: false });
-    }
-
-    function resetGame() {
-      notes = [];
-      lastSpawn = 0;
-      lastTime = performance.now();
-      score = 0;
-      gameOver = false;
-      resizeCanvas();
-      if (bgPlayer) bgPlayer.start();
-      requestAnimationFrame(gameLoop);
-    }
-
-    function draw() {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      for (let i = 0; i <= columns; i++) {
-        ctx.strokeStyle = '#555'; ctx.beginPath(); ctx.moveTo(i * colWidth, 0); ctx.lineTo(i * colWidth, canvas.height); ctx.stroke();
-      }
-      ctx.fillStyle = 'rgba(0, 255, 0, 0.3)'; ctx.fillRect(0, hitZoneY, canvas.width, hitZoneHeight);
-      notes.forEach(note => {
-        if (note.hit) return;
-        const x = note.column * colWidth + 5;
-        ctx.fillStyle = '#ff5555'; ctx.fillRect(x, note.y, noteWidth, noteHeight);
-      });
-      ctx.fillStyle = '#fff'; ctx.font = '20px Arial'; ctx.textAlign = 'left'; ctx.fillText(`Score: ${score}`, 10, 30);
-      if (gameOver) {
-        ctx.fillStyle = 'rgba(0,0,0,0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = '#fff'; ctx.font = '30px Arial'; ctx.textAlign = 'center'; ctx.fillText('Game Over', canvas.width/2, canvas.height/2 - 20);
-        ctx.font = '20px Arial'; ctx.fillText('Presiona Enter para reiniciar', canvas.width/2, canvas.height/2 + 20);
+    function spawnNote(){ const col=Math.floor(Math.random()*columns); notes.push({column:col,y:-noteHeight,hit:false}); }
+    function resetGame(){ notes=[]; lastSpawn=0; lastTime=performance.now(); score=0; gameOver=false; resizeCanvas(); requestAnimationFrame(gameLoop); }
+    function draw(){ ctx.clearRect(0,0,canvas.width,canvas.height);
+      for(let i=0;i<=columns;i++){ ctx.strokeStyle='#555'; ctx.beginPath(); ctx.moveTo(i*colWidth,0); ctx.lineTo(i*colWidth,canvas.height); ctx.stroke(); }
+      ctx.fillStyle='rgba(0,255,0,0.3)'; ctx.fillRect(0,hitZoneY,canvas.width,hitZoneHeight);
+      notes.forEach(note=>{ if(note.hit) return; const x=note.column*colWidth+5; ctx.fillStyle='#ff5555'; ctx.fillRect(x,note.y,noteWidth,noteHeight); });
+      ctx.fillStyle='#fff'; ctx.font='20px Arial'; ctx.textAlign='left'; ctx.fillText(`Score: ${score}`,10,30);
+      if(gameOver){ ctx.fillStyle='rgba(0,0,0,0.7)'; ctx.fillRect(0,0,canvas.width,canvas.height);
+        ctx.fillStyle='#fff'; ctx.font='30px Arial'; ctx.textAlign='center'; ctx.fillText('Game Over',canvas.width/2,canvas.height/2-20);
+        ctx.font='20px Arial'; ctx.fillText('Presiona Enter para reiniciar',canvas.width/2,canvas.height/2+20);
       }
     }
-
-    function update(delta) {
-      if (gameOver) return;
-      notes.forEach(note => { if (!note.hit) note.y += speed * delta; });
-      for (let note of notes) {
-        if (!note.hit && note.y > hitZoneY + hitZoneHeight) {
-          gameOver = true;
-          if (bgPlayer) bgPlayer.stop();
-        }
-      }
-    }
-
-    function playNoteSound(columnIndex) {
-      if (sampler) {
-        const note = noteNames[columnIndex] || 'C4';
-        sampler.triggerAttackRelease(note, '8n');
-      }
-    }
-
-    function gameLoop(timestamp) {
-      if (!lastTime) lastTime = timestamp;
-      const delta = (timestamp - lastTime)/1000; lastTime = timestamp;
-      if (!gameOver && timestamp - lastSpawn > spawnInterval) { spawnNote(); lastSpawn = timestamp; }
-      update(delta); draw(); if (!gameOver) requestAnimationFrame(gameLoop);
-    }
-
-    // Iniciar juego tras click o tecla si audio seleccionado
-    function startGame() {
-      if (gameStarted || !selectedAudioUrl) return;
-      gameStarted = true;
-      startOverlay.style.display = 'none';
-      initAudio().then(() => resetGame());
-    }
-    startButton.addEventListener('click', startGame);
-    audioInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (file) {
-        if (bgPlayer) bgPlayer.dispose();
-        selectedAudioUrl = URL.createObjectURL(file);
-        startButton.disabled = false;
-      }
-    });
-    document.addEventListener('keydown', (e) => {
-      if (!gameStarted) {
-        if (selectedAudioUrl) startGame(); else return;
-      }
-      if (gameOver && e.key === 'Enter') { if (bgPlayer) bgPlayer.start(); resetGame(); return; }
-      if (gameOver) return;
-      const key = e.key.toLowerCase(); const colIndex = keys.indexOf(key);
-      if (colIndex !== -1) {
-        for (let note of notes) {
-          if (!note.hit && note.column === colIndex) {
-            if (note.y + noteHeight >= hitZoneY && note.y <= hitZoneY + hitZoneHeight) {
-              note.hit = true; score += 1; playNoteSound(colIndex); return;
-            }
-          }
-        }
-      }
-    });
-
-    // Pantalla inicial
+    function update(delta){ if(gameOver) return; notes.forEach(note=>{ if(!note.hit) note.y+=speed*delta; }); for(let note of notes){ if(!note.hit && note.y>hitZoneY+hitZoneHeight){ gameOver=true; } }}
+    function playNoteSound(idx){ if(sampler){ const note=noteNames[idx]||'C4'; sampler.triggerAttackRelease(note,'8n'); }}
+    function gameLoop(ts){ if(!lastTime) lastTime=ts; const delta=(ts-lastTime)/1000; lastTime=ts; if(!gameOver && ts-lastSpawn>spawnInterval){ spawnNote(); lastSpawn=ts; } update(delta); draw(); if(!gameOver) requestAnimationFrame(gameLoop); }
+    async function startGame(){ if(gameStarted) return; gameStarted=true; startOverlay.style.display='none'; await initAudio(); resetGame(); }
+    startOverlay.addEventListener('click',()=>startGame());
+    document.addEventListener('keydown',(e)=>{ if(!gameStarted) startGame(); else if(gameOver && e.key==='Enter'){ resetGame(); } else if(!gameOver){ const key=e.key.toLowerCase(); const idx=keys.indexOf(key); if(idx!==-1){ for(let note of notes){ if(!note.hit && note.column===idx){ if(note.y+noteHeight>=hitZoneY && note.y<=hitZoneY+hitZoneHeight){ note.hit=true; score+=1; playNoteSound(idx); return; } } } } }});
     drawStartScreen();
   </script>
 </body>
 </html>
+
