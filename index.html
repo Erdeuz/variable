@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Juego estilo Guitar Freaks con Sonido</title>
+  <title>Juego estilo Guitar Freaks con Sonido MIDI/Samples</title>
   <style>
     body {
       margin: 0;
@@ -26,6 +26,8 @@
       left: 10px;
     }
   </style>
+  <!-- Importar Tone.js para reproducción de samples o MIDI sintetizado -->
+  <script src="https://cdn.jsdelivr.net/npm/tone@14.7.77/build/Tone.min.js"></script>
 </head>
 <body>
   <canvas id="gameCanvas"></canvas>
@@ -34,18 +36,46 @@
     const ctx = canvas.getContext('2d');
     const columns = 4;
     const keys = ['a', 's', 'd', 'f'];
-    // Mapeo de frecuencias (Hz) para cada columna: C4, D4, E4, F4 como ejemplo
-    const frequencies = [261.63, 293.66, 329.63, 349.23];
-    let audioCtx = null;
+    // Mapeo de notas MIDI o nombres para Tone.js
+    // Puedes reemplazar por rutas a samples específicos de videojuegos de los 90
+    const noteNames = ['C4', 'D4', 'E4', 'F4'];
+    // Si quisieras usar samples en lugar de sintetizador, define un objeto con URLs:
+    // const sampleUrls = { C4: 'ruta/a/sample_C4.wav', D4: 'ruta/a/sample_D4.wav', ... };
+
+    let sampler;
+    async function initSampler() {
+      // Inicializar Tone.Sampler; si usas samples, proporciona URLs en 'urls'.
+      // Si no tienes samples, Tone.js usará sintetizador por defecto (no produce sonido si no hay samples normalmente),
+      // así que es mejor indicar al menos un sample básico o usar Tone.Synth.
+      
+      // Ejemplo usando Synth simple:
+      sampler = new Tone.PolySynth(Tone.Synth).toDestination();
+      
+      // Ejemplo usando samples (descomenta y ajusta rutas si dispones de archivos):
+      // sampler = new Tone.Sampler({
+      //   urls: {
+      //     'C4': 'C4.wav',
+      //     'D4': 'D4.wav',
+      //     'E4': 'E4.wav',
+      //     'F4': 'F4.wav'
+      //   },
+      //   baseUrl: 'ruta/a/tu/carpeta/de/samples/'
+      // }).toDestination();
+
+      // Esperar a que los samples carguen si se usa Tone.Sampler con URLs
+      if (sampler.load) {
+        await sampler.load();
+      }
+    }
 
     let colWidth;
     let hitZoneY;
     const baseHitZoneHeight = 10;
-    const hitZoneHeight = baseHitZoneHeight * 1.6; // ~16px
+    const hitZoneHeight = baseHitZoneHeight * 1.6;
     const noteHeight = 20;
     const baseSpeed = 200;
-    const speed = baseSpeed * 1.2; // ~240 px/s
-    const spawnInterval = 1000 * 0.8; // ~800 ms
+    const speed = baseSpeed * 1.2;
+    const spawnInterval = 1000 * 0.8;
     let noteWidth;
     let notes = [];
     let lastSpawn = 0;
@@ -54,7 +84,7 @@
     let gameOver = false;
 
     function resizeCanvas() {
-      const w = Math.min(window.innerWidth * 0.8, 800);
+      const w = Math.min(window.innerWidth * 0.5, 500);
       const h = Math.min(window.innerHeight * 0.9, 1000);
       canvas.width = w;
       canvas.height = h;
@@ -85,7 +115,6 @@
 
     function draw() {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // columnas
       for (let i = 0; i <= columns; i++) {
         ctx.strokeStyle = '#555';
         ctx.beginPath();
@@ -93,22 +122,18 @@
         ctx.lineTo(i * colWidth, canvas.height);
         ctx.stroke();
       }
-      // zona de impacto
       ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
       ctx.fillRect(0, hitZoneY, canvas.width, hitZoneHeight);
-      // notas
       notes.forEach(note => {
         if (note.hit) return;
         const x = note.column * colWidth + 5;
         ctx.fillStyle = '#ff5555';
         ctx.fillRect(x, note.y, noteWidth, noteHeight);
       });
-      // score dentro de canvas
       ctx.fillStyle = '#fff';
       ctx.font = '20px Arial';
       ctx.textAlign = 'left';
       ctx.fillText(`Score: ${score}`, 10, 30);
-      // overlay game over
       if (gameOver) {
         ctx.fillStyle = 'rgba(0,0,0,0.7)';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -133,24 +158,14 @@
       }
     }
 
-    function playNoteSound(columnIndex) {
-      // Crear AudioContext en primera interacción
-      if (!audioCtx) {
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    async function playNoteSound(columnIndex) {
+      if (!sampler) {
+        await initSampler();
       }
-      const osc = audioCtx.createOscillator();
-      const gainNode = audioCtx.createGain();
-      const freq = frequencies[columnIndex] || 261.63;
-      osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-      osc.type = 'sine';
-      osc.connect(gainNode);
-      gainNode.connect(audioCtx.destination);
-      const now = audioCtx.currentTime;
-      gainNode.gain.setValueAtTime(0.001, now);
-      gainNode.gain.exponentialRampToValueAtTime(0.5, now + 0.02);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-      osc.start(now);
-      osc.stop(now + 0.3);
+      const note = noteNames[columnIndex] || 'C4';
+      // Usar Tone.js para reproducir nota
+      // Si se usa PolySynth:
+      sampler.triggerAttackRelease(note, '8n');
     }
 
     function gameLoop(timestamp) {
@@ -188,7 +203,11 @@
       }
     });
 
-    // iniciar
+    // Iniciar juego y AudioContext bajo interacción del usuario
+    document.addEventListener('click', async function initAudioOnce() {
+      await Tone.start();
+      document.removeEventListener('click', initAudioOnce);
+    });
     resetGame();
   </script>
 </body>
