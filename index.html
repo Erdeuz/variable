@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Juego estilo Guitar Freaks</title>
+  <style>
+    body {
+      margin: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #111;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    #gameCanvas {
+      background: #222;
+      display: block;
+      border: 2px solid #555;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const columns = 4;
+    const keys = ['a', 's', 'd', 'f'];
+    const colWidth = canvas.width / columns;
+    const hitZoneY = canvas.height - 100;
+    const hitZoneHeight = 10;
+    const noteWidth = colWidth - 10;
+    const noteHeight = 20;
+    const speed = 200; // px por segundo
+    const spawnInterval = 1000; // ms entre notas (puede ajustarse o basarse en ritmo)
+    let notes = [];
+    let lastSpawn = 0;
+    let lastTime = 0;
+    let score = 0;
+    let gameOver = false;
+
+    function spawnNote() {
+      const column = Math.floor(Math.random() * columns);
+      notes.push({ column, y: -noteHeight, hit: false });
+    }
+
+    function resetGame() {
+      notes = [];
+      lastSpawn = 0;
+      lastTime = performance.now();
+      score = 0;
+      gameOver = false;
+      requestAnimationFrame(gameLoop);
+    }
+
+    function draw() {
+      // fondo
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      // dibujar columnas y hit zone
+      for (let i = 0; i <= columns; i++) {
+        ctx.strokeStyle = '#555';
+        ctx.beginPath();
+        ctx.moveTo(i * colWidth, 0);
+        ctx.lineTo(i * colWidth, canvas.height);
+        ctx.stroke();
+      }
+      // zona de impacto
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.3)';
+      ctx.fillRect(0, hitZoneY, canvas.width, hitZoneHeight);
+
+      // notas
+      notes.forEach(note => {
+        if (note.hit) return;
+        const x = note.column * colWidth + 5;
+        ctx.fillStyle = '#ff5555';
+        ctx.fillRect(x, note.y, noteWidth, noteHeight);
+      });
+
+      // score
+      ctx.fillStyle = '#fff';
+      ctx.font = '20px Arial';
+      ctx.fillText(`Score: ${score}`, 10, 30);
+
+      // en caso de game over
+      if (gameOver) {
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#fff';
+        ctx.font = '30px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Game Over', canvas.width / 2, canvas.height / 2 - 20);
+        ctx.font = '20px Arial';
+        ctx.fillText('Presiona Enter para reiniciar', canvas.width / 2, canvas.height / 2 + 20);
+      }
+    }
+
+    function update(delta) {
+      if (gameOver) return;
+      // mover notas
+      notes.forEach(note => {
+        if (!note.hit) {
+          note.y += speed * delta;
+        }
+      });
+      // verificar notas pasadas
+      for (let note of notes) {
+        if (!note.hit && note.y > hitZoneY + hitZoneHeight) {
+          // nota no golpeada en zona
+          gameOver = true;
+        }
+      }
+    }
+
+    function gameLoop(timestamp) {
+      if (!lastTime) lastTime = timestamp;
+      const delta = (timestamp - lastTime) / 1000;
+      lastTime = timestamp;
+
+      // spawn
+      if (!gameOver && timestamp - lastSpawn > spawnInterval) {
+        spawnNote();
+        lastSpawn = timestamp;
+      }
+
+      update(delta);
+      draw();
+
+      if (!gameOver) requestAnimationFrame(gameLoop);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (gameOver && e.key === 'Enter') {
+        resetGame();
+        return;
+      }
+      if (gameOver) return;
+      const key = e.key.toLowerCase();
+      const colIndex = keys.indexOf(key);
+      if (colIndex !== -1) {
+        // buscar nota en esa columna en zona de impacto
+        for (let note of notes) {
+          if (!note.hit && note.column === colIndex) {
+            if (note.y + noteHeight >= hitZoneY && note.y <= hitZoneY + hitZoneHeight) {
+              note.hit = true;
+              score += 1;
+              return;
+            }
+          }
+        }
+        // si no hay nota en zona, podría restar puntos o ignorar
+      }
+    });
+
+    // iniciar juego
+    resetGame();
+  </script>
+</body>
+</html>
