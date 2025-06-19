@@ -66,14 +66,11 @@
     <div id="themeList"></div>
   </div>
   <script>
-    // Configuración de temas disponibles: nombre y URL
     const themes = [
-      // Ejemplo: reemplazar URLs con rutas reales donde alojes los archivos
       { name: 'Metal Gear Solid Main Theme', url: 'ruta/a/metalgear-main.mp3' },
       { name: 'Metal Gear Solid Love Theme', url: 'ruta/a/metalgear-love.mp3' },
       { name: 'Metal Gear Solid Alert Theme', url: 'ruta/a/metalgear-alert.mp3' },
       { name: 'Otro Tema Ejemplo', url: 'ruta/a/otro-tema.mp3' }
-      // Agrega más objetos según colecciones disponibles
     ];
 
     const themeSelector = document.getElementById('themeSelector');
@@ -103,19 +100,16 @@
     function selectTheme(url) {
       selectedThemeUrl = url;
       themeSelector.style.display = 'none';
-      // Iniciar audio con tema seleccionado y luego empezar el juego
       initAudio().then(() => {
-        startGame();
+        resetGame();
       });
     }
 
     themeSearch.addEventListener('input', () => {
       renderThemeList(themeSearch.value);
     });
-    // Render inicial
     renderThemeList();
 
-    // Variables del juego
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
     const columns = 4;
@@ -126,10 +120,9 @@
     let bgPlayer;
     async function initAudio() {
       await Tone.start();
-      // Sintetizador para notas de hit
       sampler = new Tone.PolySynth(Tone.Synth).toDestination();
-      // Reproductor de tema seleccionado
       if (selectedThemeUrl) {
+        if (bgPlayer) bgPlayer.dispose();
         bgPlayer = new Tone.Player({ url: selectedThemeUrl, loop: true, autostart: true, volume: -10 }).toDestination();
       }
     }
@@ -150,7 +143,7 @@
     let gameOver = false;
 
     function resizeCanvas() {
-      const w = Math.min(window.innerWidth * 0.8, 800);
+      const w = Math.min(window.innerWidth * 0.5, 800);
       const h = Math.min(window.innerHeight * 0.9, 1000);
       canvas.width = w;
       canvas.height = h;
@@ -173,7 +166,7 @@
       score = 0;
       gameOver = false;
       resizeCanvas();
-      if (bgPlayer && !bgPlayer.state === 'started') bgPlayer.start();
+      if (bgPlayer && bgPlayer.state !== 'started') bgPlayer.start();
       requestAnimationFrame(gameLoop);
     }
     function draw() {
@@ -230,8 +223,6 @@
         }
       }
     });
-    // Iniciar selección de tema primero
-    // El selector ya está visible; resetGame se llamará tras seleccionar tema
     resizeCanvas();
   </script>
 </body>
